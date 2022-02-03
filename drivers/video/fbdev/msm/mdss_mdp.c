@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2018, 2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -98,9 +98,21 @@ static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
 	{"edp", MDSS_PANEL_INTF_EDP},
 	{"hdmi", MDSS_PANEL_INTF_HDMI},
+	{"spi", MDSS_PANEL_INTF_SPI},
 };
-static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
-
+/*HS60 code for HS60-54 by wangqilin at 2019/07/17 start*/
+char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
+/*HS60 code for HS60-54 by wangqilin at 2019/07/17 end*/
+/*HS60 code for HS60-384 by wangqilin at 2019/08/12 start*/
+enum {
+	UNKNOWN_PANEL,
+	HLT_JD9365D_720P_VIDEO_PANEL ,
+	LS_ILI9881C_720P_VIDEO_PANEL,
+	GX_ST7703_720P_VIDEO_PANEL,
+	TXD_HX8394F_720P_VIDEO_PANEL,
+	GX_HSD_ST7703_720P_VIDEO_PANEL
+};
+/*HS60 code for HS60-384 by wangqilin at 2019/08/12 end*/
 struct mdss_hw mdss_mdp_hw = {
 	.hw_ndx = MDSS_HW_MDP,
 	.ptr = NULL,
@@ -274,7 +286,22 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
-
+/*HS60 code for HS60-384 by wangqilin at 2019/08/20 start*/
+int mdss_mdp_parse_panel_id_kernel(void)
+{
+	int panel_id = UNKNOWN_PANEL;
+	if(strstr(mdss_mdp_panel,"qcom,mdss_dsi_hlt_jd9365d_720p_video"))
+		panel_id =  HLT_JD9365D_720P_VIDEO_PANEL;
+	if(strstr(mdss_mdp_panel,"qcom,mdss_dsi_ls_ili9881c_720p_video"))
+		panel_id =  LS_ILI9881C_720P_VIDEO_PANEL;
+	if(strstr(mdss_mdp_panel,"qcom,mdss_dsi_gx_st7703_720p_video"))
+		panel_id = GX_ST7703_720P_VIDEO_PANEL;
+	if(strstr(mdss_mdp_panel,"qcom,mdss_dsi_gx_hsd_st7703_720p_video"))
+		panel_id = GX_HSD_ST7703_720P_VIDEO_PANEL;
+	pr_info("%s panel_id :%d\n",__func__,panel_id);
+	return panel_id;
+}
+/*HS60 code for HS60-384 by wangqilin at 2019/08/20 end*/
 static inline u32 is_mdp_irq_enabled(void)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -2632,13 +2659,55 @@ static ssize_t mdss_mdp_store_max_limit_bw(struct device *dev,
 	return len;
 }
 
+static ssize_t mdss_mdp_store_twm(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 data = -1;
+	ssize_t rc = 0;
+
+	if (!mdata) {
+		pr_err("Invalid mdata structure\n");
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &data);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%zd\n", rc);
+		return rc;
+	}
+	mdata->twm_en = data ? true : false;
+	pr_err("TWM :  %s\n", (mdata->twm_en) ?
+		"ENABLED" : "DISABLED");
+	return len;
+}
+
+static ssize_t mdss_mdp_show_twm(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	ssize_t ret = 0;
+
+	if (!mdata) {
+		pr_err("Invalid mdata structure\n");
+		return -EINVAL;
+	}
+
+	pr_err("TWM :  %s\n", (mdata->twm_en) ?
+		"ENABLED" : "DISABLED");
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdata->twm_en);
+	return ret;
+}
+
 static DEVICE_ATTR(caps, 0444, mdss_mdp_show_capabilities, NULL);
 static DEVICE_ATTR(bw_mode_bitmap, 0664,
 		mdss_mdp_read_max_limit_bw, mdss_mdp_store_max_limit_bw);
+static DEVICE_ATTR(twm_enable, 0664, mdss_mdp_show_twm, mdss_mdp_store_twm);
 
 static struct attribute *mdp_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_bw_mode_bitmap.attr,
+	&dev_attr_twm_enable.attr,
 	NULL
 };
 
@@ -5252,7 +5321,9 @@ static int __init mdss_mdp_driver_init(void)
 	return 0;
 
 }
-
+/*HS60 code for HS60-384 by wangqilin at 2019/08/12 start*/
+EXPORT_SYMBOL(mdss_mdp_parse_panel_id_kernel);
+/*HS60 code for HS60-384 by wangqilin at 2019/08/12 end*/
 module_param_string(panel, mdss_mdp_panel, MDSS_MAX_PANEL_LEN, 0600);
 /*
  * panel=<lk_cfg>:<pan_intf>:<pan_intf_cfg>:<panel_topology_cfg>

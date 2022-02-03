@@ -720,8 +720,13 @@ static int gs_start_io(struct gs_port *port)
 	port->n_read = 0;
 	started = gs_start_rx(port);
 
-	/* unblock any pending writes into our circular buffer */
 	if (started) {
+	//sync Q last stat,remove it
+	//gs_start_tx(port);
+	/* HS60 add for P191012-00970 by yanghui at 2019/10/31 start */
+		if (NULL == port->port.tty)
+			return -EIO;
+	/* HS60 add for P191012-00970 by yanghui at 2019/10/31 end */
 		tty_wakeup(port->port.tty);
 	} else {
 		gs_free_requests(ep, head, &port->read_allocated);
@@ -1400,8 +1405,10 @@ int gserial_alloc_line(unsigned char *line_num)
 				__func__, port_num, PTR_ERR(tty_dev));
 
 		ret = PTR_ERR(tty_dev);
+		mutex_lock(&ports[port_num].lock);
 		port = ports[port_num].port;
 		ports[port_num].port = NULL;
+		mutex_unlock(&ports[port_num].lock);
 		gserial_free_port(port);
 		goto err;
 	}

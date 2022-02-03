@@ -73,6 +73,10 @@
 #include <asm/tlbflush.h>
 #include <asm/pgtable.h>
 
+#ifdef CONFIG_PAGE_BOOST_RECORDING
+#include <linux/io_record.h>
+#endif
+
 #include "internal.h"
 
 #define CREATE_TRACE_POINTS
@@ -1146,6 +1150,9 @@ again:
 			continue;
 		}
 
+		if (need_resched())
+			break;
+
 		if (pte_present(ptent)) {
 			struct page *page;
 
@@ -1227,8 +1234,11 @@ again:
 			__tlb_remove_pte_page(tlb, pending_page);
 			pending_page = NULL;
 		}
-		if (addr != end)
-			goto again;
+	}
+
+	if (addr != end) {
+		cond_resched();
+		goto again;
 	}
 
 	return addr;
@@ -3276,11 +3286,16 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
  * If architecture emulates "accessed" or "young" bit without HW support,
  * there is no much gain with fault_around.
  */
+#ifdef CONFIG_FAULT_AROUND_4KB
+static unsigned long fault_around_bytes __read_mostly =
+	rounddown_pow_of_two(4096);
+#else
 static unsigned long fault_around_bytes __read_mostly =
 #ifndef __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 	PAGE_SIZE;
 #else
 	rounddown_pow_of_two(65536);
+#endif
 #endif
 
 #ifdef CONFIG_DEBUG_FS
@@ -3418,6 +3433,10 @@ static int do_read_fault(struct fault_env *fe, pgoff_t pgoff)
 		ret = do_fault_around(fe, pgoff);
 		if (ret)
 			return ret;
+#ifdef CONFIG_PAGE_BOOST_RECORDING
+	} else if (vma->vm_ops->map_pages && fault_around_bytes >> PAGE_SHIFT == 1) {
+		record_io_info(vma->vm_file, pgoff, 1);
+#endif
 	}
 
 	ret = __do_fault(fe, pgoff, NULL, &fault_page, NULL);
@@ -4071,6 +4090,7 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 		count_vm_event(SPECULATIVE_PGFAULT);
 		put_vma(fe.vma);
 		*vma = NULL;
+		check_sync_rss_stat(current);
 	}
 
 	/*
@@ -4096,6 +4116,7 @@ out_segv:
 	 */
 	put_vma(fe.vma);
 	*vma = NULL;
+	check_sync_rss_stat(current);
 	return VM_FAULT_SIGSEGV;
 }
 

@@ -27,6 +27,7 @@
 #include <linux/clk.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
+#include <kernel_project_defines.h>
 #endif
 
 struct nqx_platform_data {
@@ -476,7 +477,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		 * interrupts to avoid spurious notifications to upper
 		 * layers.
 		 */
-		nqx_disable_irq(nqx_dev);
+	//	nqx_disable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value disable: %s: info: %p\n",
 			__func__, nqx_dev);
@@ -746,10 +747,18 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 				nci_get_version_rsp[3];
 			nqx_dev->nqx_info.info.rom_version =
 				nci_get_version_rsp[4];
-			nqx_dev->nqx_info.info.fw_minor =
-				nci_get_version_rsp[10];
-			nqx_dev->nqx_info.info.fw_major =
-				nci_get_version_rsp[11];
+			if ((nci_get_version_rsp[3] == NFCC_SN100_A)
+				|| (nci_get_version_rsp[3] == NFCC_SN100_B)) {
+				nqx_dev->nqx_info.info.fw_minor =
+					nci_get_version_rsp[6];
+				nqx_dev->nqx_info.info.fw_major =
+					nci_get_version_rsp[7];
+			} else {
+				nqx_dev->nqx_info.info.fw_minor =
+					nci_get_version_rsp[10];
+				nqx_dev->nqx_info.info.fw_major =
+					nci_get_version_rsp[11];
+			}
 		}
 		goto err_nfcc_reset_failed;
 	}
@@ -1176,12 +1185,12 @@ static int nqx_probe(struct i2c_client *client,
 	 *
 	 */
 	r = nfcc_hw_check(client, nqx_dev);
-	if (r) {
+//	if (r) {
 		/* make sure NFCC is not enabled */
-		gpio_set_value(platform_data->en_gpio, 0);
+//		gpio_set_value(platform_data->en_gpio, 0);
 		/* We don't think there is hardware switch NFC OFF */
-		goto err_request_hw_check_failed;
-	}
+//		goto err_request_hw_check_failed;
+//	}
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);
@@ -1229,7 +1238,7 @@ err_clkreq_gpio:
 	gpio_free(platform_data->clkreq_gpio);
 err_ese_gpio:
 	/* optional gpio, not sure was configured in probe */
-	if (nqx_dev->ese_gpio > 0)
+	if (gpio_is_valid(platform_data->ese_gpio))
 		gpio_free(platform_data->ese_gpio);
 err_firm_gpio:
 	gpio_free(platform_data->firm_gpio);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018,2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,8 @@ struct msmfb_metadata32 {
 		uint32_t video_info_code;
 		struct mdss_hw_caps caps;
 		uint8_t secure_en;
+		bool sec_bl_update_en;
+		bool sec_reg_on;
 	} data;
 };
 
@@ -307,6 +309,20 @@ struct mdp_qseed_cfg_data32 {
 	struct mdp_qseed_cfg32 qseed_data;
 };
 
+/*HS60 code for P191001-06405 by zhanghao at 2019/11/15 start*/
+#if defined(CONFIG_FB_MSM_MDSS_32BIT)
+struct mdp_dither_cfg_data32 {
+	uint32_t version;
+	uint32_t block;
+	uint32_t flags;
+	uint32_t mode;
+	uint32_t g_y_depth;
+	uint32_t r_cr_depth;
+	uint32_t b_cb_depth;
+	compat_caddr_t cfg_payload;
+};
+
+#else
 struct mdp_dither_cfg_data32 {
 	uint32_t block;
 	uint32_t flags;
@@ -314,7 +330,8 @@ struct mdp_dither_cfg_data32 {
 	uint32_t r_cr_depth;
 	uint32_t b_cb_depth;
 };
-
+#endif
+/*HS60 code for P191001-06405 by zhanghao at 2019/11/15 end*/
 struct mdp_gamut_data_v1_7_32 {
 	uint32_t mode;
 	uint32_t tbl_size[MDP_GAMUT_TABLE_NUM_V1_7];
@@ -373,6 +390,11 @@ struct mdss_ad_init32 {
 	uint8_t logo_h;
 	uint32_t alpha;
 	uint32_t alpha_base;
+/*HS60 code for P191001-06405 by zhanghao at 2019/11/15 start*/
+#if defined(CONFIG_FB_MSM_MDSS_32BIT)
+	uint32_t al_thresh;
+#endif
+/*HS60 code for P191001-06405 by zhanghao at 2019/11/15 end*/
 	uint32_t bl_lin_len;
 	uint32_t bl_att_len;
 	compat_caddr_t bl_lin;

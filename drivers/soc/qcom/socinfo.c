@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,8 @@ enum {
 	HW_PLATFORM_RCM	= 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_ADP = 25,
+	HW_PLATFORM_TTP = 30,
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_INVALID
 };
@@ -87,6 +89,8 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_ADP] = "ADP",
+	[HW_PLATFORM_TTP] = "TTP",
 	[HW_PLATFORM_HDK] = "HDK",
 };
 
@@ -648,6 +652,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* SDM429W IDs*/
 	[416] = {MSM_CPU_SDM429W, "SDM429W"},
+	[437] = {MSM_CPU_SDA429W, "SDA429W"},
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1639,6 +1644,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 416;
 		strlcpy(dummy_socinfo.build_id, "sdm429w - ",
 				sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sda429w()) {
+		dummy_socinfo.id = 437;
+		strlcpy(dummy_socinfo.build_id, "sda429w - ",
+				sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_mdm9607()) {
 		dummy_socinfo.id = 290;
 		strlcpy(dummy_socinfo.build_id, "mdm9607 - ",
@@ -1783,6 +1792,7 @@ static int __init socinfo_init_sysfs(void)
 
 late_initcall(socinfo_init_sysfs);
 
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 static void socinfo_print(void)
 {
 	uint32_t f_maj = SOCINFO_VERSION_MAJOR(socinfo_format);
@@ -1976,6 +1986,7 @@ static void socinfo_print(void)
 		break;
 	}
 }
+#endif
 
 static void socinfo_select_format(void)
 {
@@ -2023,7 +2034,9 @@ int __init socinfo_init(void)
 		cur_cpu = cpu_of_id[socinfo->v0_1.id].generic_soc_type;
 
 	boot_stats_init();
+#ifndef CONFIG_SAMSUNG_PRODUCT_SHIP
 	socinfo_print();
+#endif
 	arch_read_hardware_id = msm_read_hardware_id;
 	socinfo_init_done = true;
 

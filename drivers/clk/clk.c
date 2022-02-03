@@ -34,6 +34,8 @@
 
 #if defined(CONFIG_COMMON_CLK)
 
+#include <linux/sec_debug.h>
+
 static DEFINE_SPINLOCK(enable_lock);
 static DEFINE_MUTEX(prepare_lock);
 
@@ -1811,6 +1813,7 @@ static int clk_change_rate(struct clk_core *core)
 	}
 
 	trace_clk_set_rate(core, core->new_rate);
+	sec_debug_clock_rate_log(core->name, core->new_rate, raw_smp_processor_id());
 
 	/* Enforce vdd requirements for new frequency. */
 	if (core->prepare_count) {
@@ -1847,6 +1850,7 @@ static int clk_change_rate(struct clk_core *core)
 	}
 
 	trace_clk_set_rate_complete(core, core->new_rate);
+	sec_debug_clock_rate_complete_log(core->name, core->new_rate, raw_smp_processor_id());
 
 	/* Release vdd requirements for old frequency. */
 	if (core->prepare_count)
@@ -3273,11 +3277,17 @@ static int __clk_core_init(struct clk_core *core)
 	if (core->flags & CLK_IS_CRITICAL) {
 		unsigned long flags;
 
-		clk_core_prepare(core);
+		ret = clk_core_prepare(core);
+		if (ret)
+			goto out;
 
 		flags = clk_enable_lock();
-		clk_core_enable(core);
+		ret = clk_core_enable(core);
 		clk_enable_unlock(flags);
+		if (ret) {
+			clk_core_unprepare(core);
+			goto out;
+		}
 	}
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 
 #include "clock.h"
 #include <dt-bindings/clock/msm-cpu-clocks-8939.h>
+
+#include <linux/sec_smem.h>
 
 DEFINE_VDD_REGS_INIT(vdd_cpu_bc, 1);
 DEFINE_VDD_REGS_INIT(vdd_cpu_lc, 1);
@@ -142,6 +144,28 @@ static long cpu_clk_8939_round_rate(struct clk *c, unsigned long rate)
 	return c->fmax[level];
 }
 
+enum {
+	SLOT_A53_BC_CLK = 0,
+	SLOT_A53_LC_CLK,
+	SLOT_CCI_CLK,
+};
+
+static void __sec_clk_osm_add_log(const char *name, unsigned long rate)
+{
+	size_t slot;
+
+	if (!strcmp(name, "a53_bc_clk"))
+		slot = SLOT_A53_BC_CLK;
+	else if (!strcmp(name, "a53_lc_clk"))
+		slot = SLOT_A53_LC_CLK;
+	else if (!strcmp(name, "cci_clk"))
+		slot = SLOT_CCI_CLK;
+	else
+		return;
+
+	sec_smem_cpuclk_log_raw(slot, rate);
+}
+
 static int cpu_clk_8939_set_rate(struct clk *c, unsigned long rate)
 {
 	int ret = 0;
@@ -160,6 +184,8 @@ static int cpu_clk_8939_set_rate(struct clk *c, unsigned long rate)
 	}
 
 	ret = clk_set_rate(c->parent, rate);
+
+	__sec_clk_osm_add_log(c->dbg_name, rate);
 
 	if (hw_low_power_ctrl)
 		pm_qos_remove_request(&cpuclk->req);
@@ -1081,7 +1107,7 @@ static int __init cpu_clock_a53_init_little(void)
 
 	/* Wait for update to take effect */
 	for (count = 500; count > 0; count--) {
-		if (!(readl_relaxed(base)) & BIT(0))
+		if (!(readl_relaxed(base) & BIT(0)))
 			break;
 		udelay(1);
 	}
